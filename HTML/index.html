@@ -1,0 +1,212 @@
+<html>
+
+<!--
+    Copyright (c) Sebastian Kapp.
+    Licensed under the MIT License.
+-->
+
+<head>
+    <title>HoloLens 2 EyeTracking</title>
+    <script src="gui.js"></script>
+    <script src="api.js"></script>
+    <script>
+        // Are we currently recording?
+        globalThis.currentlyRecording = false;
+
+        // Is the accuracy grid currently visible?
+        globalThis.accuracyVisible = false;
+
+        // Is the AOI check currently visible?
+        globalThis.checkVisible = false;
+
+        // Do we currently have an error?
+        globalThis.error = false;
+
+        // Do we currently have an error for writing information?
+        globalThis.infoError = false;
+    </script>
+    <!-- Bootstrap -->
+    <link href="bootstrap.min.css" rel="stylesheet">
+</head>
+
+<body>
+    <nav class="navbar navbar-expand navbar-dark bg-dark mb-4 sticky-top">
+        <span class="navbar-brand mr-auto" id="deviceName">Loading..</span>
+
+        <span class="navbar-text text-muted mr-3">
+            Last Update: <span id="timeLastUpdate">00:00:00</span>
+        </span>
+        <form class="form-inline my-2 my-md-0 " action="javascript:;" onsubmit="updateStatus(this)">
+            <input type="submit" value="Update" id="updateButton" class="btn btn-success" style="width: 7rem;">
+        </form>
+        </div>
+    </nav>
+
+    <main role="main" class="container-fluid">
+        <div class="alert alert-danger" role="alert" id="errorDisplay"  style="display: none">
+            Error on connection to device!
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-5 themed-grid-col">
+                <div class="card bg-light mb-3">
+                    <div class="card-header text-center">
+                        <h5>Current Participant</h5>
+                    </div>
+                    <div class="card-body text-left">
+                        <div class="card bg-info mb-3 text-center text-white">
+                            <h6 class="card-body mb-0" id="participantName">
+                                Loading...
+                            </h6>
+                        </div>
+
+                        <div class="container mt-3">
+                            <div class="row">
+                                <div class="col text-center text-white bg-danger p-1" id="eyesApiAvailable">
+                                    Eyes API <b>not</b> available
+                                </div>
+                                <div class="col text-center text-white bg-danger p-1" id="gazeCalibrationValid">
+                                    Calibration <b>invalid</b>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer text-center">
+                        <form action="javascript:;" onsubmit="setParticipantName(this)" class="input-group mb-0">
+                            <input type="text" class="form-control" placeholder="New Participant Name"
+                                id="participantNameInput" name="participant_name" aria-label="New Participant Name">
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-secondary" type="submit">Set</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="card bg-light mb-3">
+                    <div class="card-header text-center">
+                        <h5>Current Recording</h5>
+                    </div>
+                    <div class="card-body text-left">
+                        <div class="card mb-0 text-center">
+                            <h6 class="card-header bg-info text-white" id="recordingName">
+                                Loading...
+                            </h6>
+                            <h6 class="card-body bg-danger text-white p-2 mb-0" id="recordingRunning">
+                                Loading...
+                            </h6>
+                            <div class="card-body pt-2 pb-2">
+                                <div class="container-fluid">
+                                    <div class="row">
+                                        <div class="col text-right">
+                                            Recording Start
+                                        </div>
+                                        <div class="col text-left" id="recordingStartTime">
+                                            Loading...
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col text-right">
+                                            Recording Stop
+                                        </div>
+                                        <div class="col text-left" id="recordingStopTime">
+                                            Loading...
+                                        </div>
+                                    </div>
+                                    <div class="row">
+                                        <div class="col text-right">
+                                            Recording Duration
+                                        </div>
+                                        <div class="col text-left" id="recordingDuration">
+                                            Loading...
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer text-center">
+                        <form action="javascript:;" onsubmit="setRecordingName(this)" class="input-group">
+                            <input type="text" class="form-control" placeholder="New Recording Name"
+                                aria-label="New Recording Name" id="recordingNameInput" name="recording_name">
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-secondary" type="submit">Set</button>
+                            </div>
+                        </form>
+
+                        <form action="javascript:;" onsubmit="toggleRecord(this)" class="mb-0">
+                            <input type="submit" value="Start Recording" id="toggleRecordingButton"
+                                class="btn btn-success w-75">
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-7 themed-grid-col">
+                <div class="card bg-light mb-3">
+                    <div class="card-header text-center">
+                        <h5>Tools</h5>
+                    </div>
+                    <div class="card-body text-center">
+                        <div class="container">
+                            <div class="row">
+                                <div class="col">
+                                    <form action="javascript:;" onsubmit="toggleAccuracy(this)">
+                                        <input type="submit" value="Show Accuracy Grid" id="toggleAccuracyButton"
+                                            class="btn btn-primary w-100">
+                                    </form>
+
+                                    <div class="btn-group btn-group-sm" role="group" aria-label="Distance settings">
+                                        <button type="button" class="btn btn-secondary" id="d05mButton" onclick="updateAccuracyDistance(05)">0.5 m</button>
+                                        <button type="button" class="btn btn-secondary" id="d10mButton" onclick="updateAccuracyDistance(10)">1.0 m</button>
+                                        <button type="button" class="btn btn-secondary" id="d20mButton" onclick="updateAccuracyDistance(20)">2.0 m</button>
+                                        <button type="button" class="btn btn-secondary" id="d40mButton" onclick="updateAccuracyDistance(40)">4.0 m</button>
+                                    </div>
+
+                                </div>
+                                <div class="col">
+                                    <form action="javascript:;" onsubmit="toggleCheck(this)" class="mb-0">
+                                        <input type="submit" value="Hide AOI Check" id="toggleCheckButton"
+                                            class="btn btn-secondary w-100">
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="card bg-light mb-3">
+                    <div class="card-header text-center">
+                        <h5>Information Log</h5>
+                    </div>
+                    <div class="card-body text-center bg-light">
+                        <form action="javascript:;" onsubmit="sendInfo(this)" class="input-group mb-0">
+                            <input type="text" class="form-control" placeholder="New line" aria-label="New Info Line"
+                                id="infoInput" name="info_string">
+                            <div class="input-group-append">
+                                <button class="btn btn-outline-secondary" type="submit"
+                                    id="sendInfoButton">Send</button>
+                            </div>
+                        </form>
+
+                        <div class="alert alert-danger mt-3 mb-0" role="alert" id="logErrorDisplay" style="display: none">
+                            Error: Can't send info as we aren't recording!
+                        </div>
+                    </div>
+                    <div class="card-body text-left pt-0" id="infoList">
+                        Loading...
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Update once after loading to initialize the data
+        updateStatus();
+
+        // And then update every 2 seconds
+        // Note: This is stopped when there is a connection error but restarted if the error clears
+        globalThis.updateInterval = setInterval(updateStatus, 2000);
+    </script>
+</body>
+
+</html>
