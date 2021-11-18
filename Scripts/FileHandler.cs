@@ -34,6 +34,16 @@ namespace ARETT
 		private Timer dataWriteTimer;
 
 		/// <summary>
+		/// Is the previous timer to write data still busy?
+		/// </summary>
+		private static int dataWriteTimerIsBusy = 0;
+
+		/// <summary>
+		/// Lock Object for data file
+		/// </summary>
+		private readonly object dataFileLock = new object();
+
+		/// <summary>
 		/// Flag whether we are currently writing data
 		/// </summary>
 		public bool writingData = false;
@@ -43,7 +53,7 @@ namespace ARETT
 		/// Queue of data which waits to be written to the data file
 		/// </summary>
 		private ConcurrentQueue<string> dataQueue = new ConcurrentQueue<string>();
-		
+
 		/// <summary>
 		/// StringBuilder which creates the new text to append to the data file
 		/// </summary>
@@ -138,13 +148,22 @@ namespace ARETT
 			dataWriteTimer.Stop();
 			dataWriteTimer.Dispose();
 
-			// Clear all remaining messages
-			// Note: This isn't thread save as we could end in a loop when there is still new data coming in faster than we are writing it.
-			//       However, closing the data log should only happen after we stopped adding data and data is only added slowly enough so we shouldn't run into issues.
-			while (dataQueue.TryDequeue(out string newData))
-				append.AppendLine(newData);
-			dataWriter.Write(append);
-			append.Length = 0;
+			// Lock the data writer
+			lock (dataFileLock)
+			{
+				// Check if there are remaining messages
+				if (!dataQueue.IsEmpty)
+				{
+					// Clear all remaining messages
+					// Note: This isn't thread save as we could end in a loop when there is still new data coming in faster than we are writing it.
+					//       However, closing the data log should only happen after we stopped adding data and data is only added slowly enough so we shouldn't run into issues.
+					while (dataQueue.TryDequeue(out string newData))
+						append.AppendLine(newData);
+
+					dataWriter.Write(append);
+					append.Length = 0;
+				}
+			}
 
 			// Close the file writer
 			dataWriter.Close();
@@ -174,26 +193,50 @@ namespace ARETT
 		/// <param name="e"></param>
 		private void flushDataQueue(object source, ElapsedEventArgs e)
 		{
-			// Check if there is something to write
-			if (dataQueue.Count != 0)
+			// Make sure the previous event isn't still running
+			if (System.Threading.Interlocked.CompareExchange(ref dataWriteTimerIsBusy, 1, 0) == 1)
 			{
-				// Append all data currently in the queue to the StringBuilder
-				// Note: This isn't 100% thread save as we could end in a loop when there is still new data coming in faster than we are writing it.
-				//       However, data is added slowly enough so we shouldn't run into issues.
-				while (dataQueue.TryDequeue(out string newData))
-					append.AppendLine(newData);
+				//Debug.LogError("Previous event still running!");
+				return;
+			}
 
-				// Append the StringBuilder to the file
-				dataWriter.Write(append);
+			try
+			{
+				// Lock the data writer
+				lock (dataFileLock)
+				{
+					if (!dataQueue.IsEmpty)
+					{
+						// Append all data currently in the queue to the StringBuilder
+						// Note: This isn't 100% thread save as we could end in a loop when there is still new data coming in faster than we are writing it.
+						//       However, data is added slowly enough so we shouldn't run into issues.
+						while (dataQueue.TryDequeue(out string newData))
+						{
+							append.AppendLine(newData);
+						}
 
-				// Clear the StringBuilder
-				append.Length = 0;
+						// Append the StringBuilder to the file
+						dataWriter.Write(append);
+
+						// Clear the StringBuilder
+						append.Length = 0;
+					}
+				}
+			}
+			finally
+			{
+				dataWriteTimerIsBusy = 0;
 			}
 		}
 
 		#endregion Data Log
 
 		#region Info File
+
+		/// <summary>
+		/// Lock Object for info file
+		/// </summary>
+		private readonly object infoFileLock = new object();
 
 		/// <summary>
 		/// Write an information file for the current recording
@@ -208,18 +251,21 @@ namespace ARETT
 				throw new Exception("[EyeTracking FileHandler] Not writing a data log! Can't write an info file!");
 			}
 
-			// Get the file path
-			string filePath = getFilePath(FileType.InfoFile);
+			lock (infoFileLock)
+			{
+				// Get the file path
+				string filePath = getFilePath(FileType.InfoFile);
 
-			// If we want to replace the file simply write the new text to it
-			if (replaceFile)
-			{
-				File.WriteAllText(filePath, fileContent, Encoding.UTF8);
-			}
-			// Otherwise append the new text
-			else
-			{
-				File.AppendAllText(filePath, fileContent, Encoding.UTF8);
+				// If we want to replace the file simply write the new text to it
+				if (replaceFile)
+				{
+					File.WriteAllText(filePath, fileContent, Encoding.UTF8);
+				}
+				// Otherwise append the new text
+				else
+				{
+					File.AppendAllText(filePath, fileContent, Encoding.UTF8);
+				}
 			}
 		}
 

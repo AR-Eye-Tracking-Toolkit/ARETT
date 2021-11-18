@@ -34,10 +34,16 @@ namespace ARETT
 		/// Timer which starts the writing command
 		/// </summary>
 		private Timer dataWriteTimer;
+
 		/// <summary>
 		/// Is the previous timer to write data still busy?
 		/// </summary>
 		private static int dataWriteTimerIsBusy = 0;
+
+		/// <summary>
+		/// Lock Object for data file
+		/// </summary>
+		private System.Threading.SemaphoreSlim dataFileSemaphore = new System.Threading.SemaphoreSlim(1);
 
 		/// <summary>
 		/// Lock whether we are currently writing data
@@ -166,32 +172,78 @@ namespace ARETT
 		/// </summary>
 		private async void StopDataLogAsync()
 		{
-			// Clear all remaining messages
-			// Note: This isn't thread save as we could end in a loop when there is still new data coming in.
-			//       However, closing the data log should only happen after we stopped adding data and data is only added slowly enough so we shouldn't run into issues.
-			while (dataQueue.TryDequeue(out string newData))
-				append.AppendLine(newData);
-			await FileIO.AppendTextAsync(dataFile, append.ToString(), Windows.Storage.Streams.UnicodeEncoding.Utf8);
-			append.Length = 0;
+			if (!dataQueue.IsEmpty)
+			{
+				// Clear all remaining messages
+				// Note: This isn't thread save as we could end in a loop when there is still new data coming in.
+				//       However, closing the data log should only happen after we stopped adding data and data is only added slowly enough so we shouldn't run into issues.
+				while (dataQueue.TryDequeue(out string newData))
+					append.AppendLine(newData);
+
+				// Wait until we can lock the data file
+				await dataFileSemaphore.WaitAsync();
+
+				// Append the StringBuilder to the file
+				try
+				{
+					await FileIO.AppendTextAsync(dataFile, append.ToString(), Windows.Storage.Streams.UnicodeEncoding.Utf8);
+				}
+
+				// Catch errors
+				catch (Exception e)
+				{
+					Debug.LogError("[FileHandlerUWP] Exception on appending text while stopping data log!\n" + e);
+				}
+
+				// Release the lock for the data file
+				finally
+				{
+					dataFileSemaphore.Release();
+				}
+
+				// Reset the StringBuilder
+				append.Length = 0;
+			}
 
 			// Reset the current log file
 			dataFile = null;
 
 			// Write all remaining info files
-			while (writeInfoQueue.TryDequeue(out (string fileContent, bool replaceFile) infoDetails))
+			if (!writeInfoQueue.IsEmpty)
 			{
-				// Get the file
-				IStorageFile file = await getFile(FileType.InfoFile);
+				while (writeInfoQueue.TryDequeue(out (string fileContent, bool replaceFile) infoDetails))
+				{
+					// Wait until we can lock the info file
+					await infoFileSemaphore.WaitAsync();
 
-				// If we want to replace the file simply write the new text to it
-				if (infoDetails.replaceFile)
-				{
-					await FileIO.WriteTextAsync(file, infoDetails.fileContent, Windows.Storage.Streams.UnicodeEncoding.Utf8);
-				}
-				// Otherwise append the new text
-				else
-				{
-					await FileIO.AppendTextAsync(file, infoDetails.fileContent, Windows.Storage.Streams.UnicodeEncoding.Utf8);
+					try
+					{
+						// Get the file
+						IStorageFile file = await getFile(FileType.InfoFile);
+
+						// If we want to replace the file simply write the new text to it
+						if (infoDetails.replaceFile)
+						{
+							await FileIO.WriteTextAsync(file, infoDetails.fileContent, Windows.Storage.Streams.UnicodeEncoding.Utf8);
+						}
+						// Otherwise append the new text
+						else
+						{
+							await FileIO.AppendTextAsync(file, infoDetails.fileContent, Windows.Storage.Streams.UnicodeEncoding.Utf8);
+						}
+					}
+
+					// Catch errors
+					catch (Exception e)
+					{
+						Debug.LogError("[FileHandlerUWP] Exception on writing info file after stopping data log!\n" + e);
+					}
+
+					// Release the lock for the data file
+					finally
+					{
+						infoFileSemaphore.Release();
+					}
 				}
 			}
 
@@ -215,6 +267,11 @@ namespace ARETT
 #endregion Data Log
 
 #region Info File
+
+		/// <summary>
+		/// Lock Object for info file
+		/// </summary>
+		private System.Threading.SemaphoreSlim infoFileSemaphore = new System.Threading.SemaphoreSlim(1);
 
 		/// <summary>
 		/// Write an information file for the current recording
@@ -254,8 +311,7 @@ namespace ARETT
 
 			try
 			{
-				// Check if there is something to write to a data log
-				if (dataQueue.Count != 0)
+				if (!dataQueue.IsEmpty)
 				{
 					// Append all data currently in the queue to the StringBuilder
 					// Note: This isn't 100% thread save as we could end in a loop when there is still new data coming in.
@@ -265,30 +321,65 @@ namespace ARETT
 						append.AppendLine(newData);
 					}
 
+					// Wait until we can lock the data file
+					await dataFileSemaphore.WaitAsync();
+					
 					// Append the StringBuilder to the file
-					await FileIO.AppendTextAsync(dataFile, append.ToString(), Windows.Storage.Streams.UnicodeEncoding.Utf8);
+					try
+					{
+						await FileIO.AppendTextAsync(dataFile, append.ToString(), Windows.Storage.Streams.UnicodeEncoding.Utf8);
+					}
+
+					// Catch errors
+					catch (Exception dataLogException)
+					{
+						Debug.LogError("[FileHandlerUWP] Exception while writing data log!\n" + dataLogException);
+					}
+
+					// Release the lock for the data file
+					finally
+					{
+						dataFileSemaphore.Release();
+					}
 
 					// Clear the StringBuilder
 					append.Length = 0;
 				}
 
 				// Check if a info file is waiting to be written
-				if (writeInfoQueue.Count != 0)
+				if (!writeInfoQueue.IsEmpty)
 				{
 					while (writeInfoQueue.TryDequeue(out (string fileContent, bool replaceFile) infoDetails))
 					{
-						// Get the file
-						IStorageFile file = await getFile(FileType.InfoFile);
+						// Wait until we can lock the info file
+						await infoFileSemaphore.WaitAsync();
 
-						// If we want to replace the file simply write the new text to it
-						if (infoDetails.replaceFile)
-						{
-							await FileIO.WriteTextAsync(file, infoDetails.fileContent, Windows.Storage.Streams.UnicodeEncoding.Utf8);
+						try {
+							// Get the file
+							IStorageFile file = await getFile(FileType.InfoFile);
+
+							// If we want to replace the file simply write the new text to it
+							if (infoDetails.replaceFile)
+							{
+								await FileIO.WriteTextAsync(file, infoDetails.fileContent, Windows.Storage.Streams.UnicodeEncoding.Utf8);
+							}
+							// Otherwise append the new text
+							else
+							{
+								await FileIO.AppendTextAsync(file, infoDetails.fileContent, Windows.Storage.Streams.UnicodeEncoding.Utf8);
+							}
 						}
-						// Otherwise append the new text
-						else
+
+						// Catch errors
+						catch (Exception infoFileException)
 						{
-							await FileIO.AppendTextAsync(file, infoDetails.fileContent, Windows.Storage.Streams.UnicodeEncoding.Utf8);
+							Debug.LogError("[FileHandlerUWP] Exception while writing info file!\n" + infoFileException);
+						}
+
+						// Release the lock for the data file
+						finally
+						{
+							infoFileSemaphore.Release();
 						}
 					}
 				}

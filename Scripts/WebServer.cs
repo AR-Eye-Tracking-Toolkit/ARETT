@@ -744,21 +744,28 @@ namespace ARETT
 				accuracyGridDistance = accuracyGrid.currentGridDistance,
 				checkVisible = dataProvider.eyeTrackingCheckLayersVisible
 			};
-			
-			// If a recording exists add the recording information
-			response.participantName = dataLogger.CurrentRecording.participantName;
-			response.recordingName = dataLogger.CurrentRecording.recordingName;
-			response.recordingStartTime = dataLogger.CurrentRecording.startTime != null ? dataLogger.CurrentRecording.startTime.ToString() : "<None>";
-			response.recordingStopTime = dataLogger.CurrentRecording.stopTime != null ? dataLogger.CurrentRecording.stopTime.ToString() : "<None>";
-			response.recordingDuration = dataLogger.CurrentRecording.recordingDuration != null ? dataLogger.CurrentRecording.recordingDuration.ToString() : "<None>";
 
-			// If there are info logs add them to the response
-			if (dataLogger.CurrentRecording.infoLogs.Count > 0)
+			// If a recording exists add the recording information
+			lock (dataLogger.CurrentRecording)
 			{
-				response.infoLogs = new string[dataLogger.CurrentRecording.infoLogs.Count];
-				for (int i = 0; i < dataLogger.CurrentRecording.infoLogs.Count; i++)
+				response.participantName = dataLogger.CurrentRecording.participantName;
+				response.recordingName = dataLogger.CurrentRecording.recordingName;
+				response.recordingStartTime = dataLogger.CurrentRecording.startTime != null ? dataLogger.CurrentRecording.startTime.ToString() : "<None>";
+				response.recordingStopTime = dataLogger.CurrentRecording.stopTime != null ? dataLogger.CurrentRecording.stopTime.ToString() : "<None>";
+				response.recordingDuration = dataLogger.CurrentRecording.recordingDuration != null ? dataLogger.CurrentRecording.recordingDuration.ToString() : "<None>";
+			}
+
+			// Lock the info log object while adding info
+			lock (dataLogger.CurrentRecording.infoLogs)
+			{
+				// If there are info logs add them to the response
+				if (dataLogger.CurrentRecording.infoLogs.Count > 0)
 				{
-					response.infoLogs[i] = "[" + dataLogger.CurrentRecording.infoLogs[i].timestamp.ToString("yyyy-MM-dd HH:mm:ss") + "] " + dataLogger.CurrentRecording.infoLogs[i].info;
+					response.infoLogs = new string[dataLogger.CurrentRecording.infoLogs.Count];
+					for (int i = 0; i < dataLogger.CurrentRecording.infoLogs.Count; i++)
+					{
+						response.infoLogs[i] = "[" + dataLogger.CurrentRecording.infoLogs[i].timestamp.ToString("yyyy-MM-dd HH:mm:ss") + "] " + dataLogger.CurrentRecording.infoLogs[i].info;
+					}
 				}
 			}
 
@@ -773,7 +780,7 @@ namespace ARETT
 		private void Update()
 		{
 			// Check if there is something to process
-			if (actionQueue.Count != 0)
+			if (!actionQueue.IsEmpty)
 			{
 				// Process all commands which are waiting to be processed
 				// Note: This isn't 100% thread save as we could end in a loop when there is still new data coming in.

@@ -64,11 +64,17 @@ namespace ARETT {
 		{
 			get
 			{
-				return CurrentRecording.participantName;
+				lock (CurrentRecording)
+				{
+					return CurrentRecording.participantName;
+				}
 			}
 			set
 			{
-				CurrentRecording.participantName = value;
+				lock (CurrentRecording)
+				{
+					CurrentRecording.participantName = value;
+				}
 			}
 		}
 
@@ -79,11 +85,17 @@ namespace ARETT {
 		{
 			get
 			{
-				return CurrentRecording.recordingName;
+				lock (CurrentRecording)
+				{
+					return CurrentRecording.recordingName;
+				}
 			}
 			set
 			{
-				CurrentRecording.recordingName = value;
+				lock (CurrentRecording)
+				{
+					CurrentRecording.recordingName = value;
+				}
 			}
 		}
 
@@ -156,18 +168,23 @@ namespace ARETT {
 			// Create recording info
 			// Note: At this point we transfer the game objects of which we want to log the position into the recording info.
 			//       This means the list stays static during recording which is important for the data file header
-			CurrentRecording = new RecordingInfo
+			lock (CurrentRecording)
 			{
-				participantName = ParticipantName,
-				recordingName = RecordingName,
-				startTime = DateTime.Now,
-				positionLoggedGameObjectNames = dataProvider.PositionLoggedGameObjectNames
-			};
+				CurrentRecording = new RecordingInfo
+				{
+					participantName = ParticipantName,
+					recordingName = RecordingName,
+					eyesApiAvailable = dataProvider.EyesApiAvailable,
+					gazeCalibrationValid = dataProvider.IsGazeCalibrationValid,
+					startTime = DateTime.Now,
+					positionLoggedGameObjectNames = dataProvider.PositionLoggedGameObjectNames
+				};
 
-			// Write information file
-			JSON.RecordingInfo infoJson = new JSON.RecordingInfo(CurrentRecording);
-			string infoString = JsonUtility.ToJson(infoJson);
-			FileHandler.WriteInformation(infoString, true);
+				// Write information file
+				JSON.RecordingInfo infoJson = new JSON.RecordingInfo(CurrentRecording);
+				string infoString = JsonUtility.ToJson(infoJson);
+				FileHandler.WriteInformation(infoString, true);
+			}
 
 			// Create the header for the data file
 			StringBuilder dataFileHeader = new StringBuilder();
@@ -183,37 +200,39 @@ namespace ARETT {
 			dataFileHeader.Append("gazePointAOI_target_pos_x,gazePointAOI_target_pos_y,gazePointAOI_target_pos_z,gazePointAOI_target_rot_x,gazePointAOI_target_rot_y,gazePointAOI_target_rot_z,gazePointAOI_target_scale_x,gazePointAOI_target_scale_y,gazePointAOI_target_scale_z,");
 			dataFileHeader.Append("GazePointAOIWebcam_x,GazePointAOIWebcam_y,GazePointAOIWebcam_z");
 
-			// Append the game object information if we want to log game objects
-			for (int i = 0; i < CurrentRecording.positionLoggedGameObjectNames.Length; i++)
+			lock (CurrentRecording)
 			{
-				// We start with NA as game object name and replace it with the actual name if the game object (still) exists
-				string gameObjectName = "NA";
-				if (CurrentRecording.positionLoggedGameObjectNames[i] != null)
+				// Append the game object information if we want to log game objects
+				for (int i = 0; i < CurrentRecording.positionLoggedGameObjectNames.Length; i++)
 				{
-					gameObjectName = FileHandler.RemoveAllNonAlphanumeric(CurrentRecording.positionLoggedGameObjectNames[i]);
+					// We start with NA as game object name and replace it with the actual name if the game object (still) exists
+					string gameObjectName = "NA";
+					if (CurrentRecording.positionLoggedGameObjectNames[i] != null)
+					{
+						gameObjectName = FileHandler.RemoveAllNonAlphanumeric(CurrentRecording.positionLoggedGameObjectNames[i]);
+					}
+
+					dataFileHeader.Append(",GameObject_");
+					dataFileHeader.Append(gameObjectName);
+					dataFileHeader.Append("_xPos,GameObject_");
+					dataFileHeader.Append(gameObjectName);
+					dataFileHeader.Append("_yPos,GameObject_");
+					dataFileHeader.Append(gameObjectName);
+					dataFileHeader.Append("_zPos,GameObject_");
+					dataFileHeader.Append(gameObjectName);
+					dataFileHeader.Append("_xRot,GameObject_");
+					dataFileHeader.Append(gameObjectName);
+					dataFileHeader.Append("_yRot,GameObject_");
+					dataFileHeader.Append(gameObjectName);
+					dataFileHeader.Append("_zRot,GameObject_");
+					dataFileHeader.Append(gameObjectName);
+					dataFileHeader.Append("_xScale,GameObject_");
+					dataFileHeader.Append(gameObjectName);
+					dataFileHeader.Append("_yScale,GameObject_");
+					dataFileHeader.Append(gameObjectName);
+					dataFileHeader.Append("_zScale");
 				}
-
-				dataFileHeader.Append(",GameObject_");
-				dataFileHeader.Append(gameObjectName);
-				dataFileHeader.Append("_xPos,GameObject_");
-				dataFileHeader.Append(gameObjectName);
-				dataFileHeader.Append("_yPos,GameObject_");
-				dataFileHeader.Append(gameObjectName);
-				dataFileHeader.Append("_zPos,GameObject_");
-				dataFileHeader.Append(gameObjectName);
-				dataFileHeader.Append("_xRot,GameObject_");
-				dataFileHeader.Append(gameObjectName);
-				dataFileHeader.Append("_yRot,GameObject_");
-				dataFileHeader.Append(gameObjectName);
-				dataFileHeader.Append("_zRot,GameObject_");
-				dataFileHeader.Append(gameObjectName);
-				dataFileHeader.Append("_xScale,GameObject_");
-				dataFileHeader.Append(gameObjectName);
-				dataFileHeader.Append("_yScale,GameObject_");
-				dataFileHeader.Append(gameObjectName);
-				dataFileHeader.Append("_zScale");
 			}
-
 			// Header for the info column
 			dataFileHeader.Append(",info");
 
@@ -240,12 +259,15 @@ namespace ARETT {
 			// Unsubscribe from new data event
 			dataProvider.NewDataEvent -= NewDataHandler;
 
-			// Update the recording information
-			CurrentRecording.stopTime = DateTime.Now;
-			CurrentRecording.recordingDuration = CurrentRecording.stopTime - CurrentRecording.startTime;
+			lock (CurrentRecording)
+			{
+				// Update the recording information
+				CurrentRecording.stopTime = DateTime.Now;
+				CurrentRecording.recordingDuration = CurrentRecording.stopTime - CurrentRecording.startTime;
 
-			// Write the new information file
-			FileHandler.WriteInformation(JsonUtility.ToJson(new JSON.RecordingInfo(CurrentRecording), true), true);
+				// Write the new information file
+				FileHandler.WriteInformation(JsonUtility.ToJson(new JSON.RecordingInfo(CurrentRecording), true), true);
+			}
 
 			// Stop the current log
 			FileHandler.StopDataLog();
@@ -265,8 +287,12 @@ namespace ARETT {
 				throw new Exception("Can't add info as we aren't logging!");
 			}
 
-			// Add the info to the current recording info
-			CurrentRecording.infoLogs.Add((DateTimeOffset.Now, info));
+			// Lock the info log object while adding info
+			lock (CurrentRecording.infoLogs)
+			{
+				// Add the info to the current recording info
+				CurrentRecording.infoLogs.Add((DateTimeOffset.Now, info));
+			}
 
 			// Add the info to the queue of infos which are supposed to be added to the log
 			infoToLog.Enqueue(info);
@@ -491,9 +517,8 @@ namespace ARETT {
 			logStringBuilder.Append(",");
 
 			// If there is info we should log, log it
-			if (infoToLog.Count > 0)
+			if (!infoToLog.IsEmpty)
 			{
-				// Add the missing infos to the string
 				while (infoToLog.TryDequeue(out string info))
 				{
 					// Append the string

@@ -217,10 +217,10 @@ namespace ARETT
 			// Get AOI LayerMask
 			eyeTrackingAOILayerMask = LayerMask.GetMask(eyeTrackingAOILayers);
 
-			
+
 			// Calculate Layer Mask without AOIs
 			// Note: As Layers are represented by bits, this calculation is also happening on bit level
-			
+
 			// We start with the default ray cast layers
 			notEyeTrackingLayerMask = Physics.DefaultRaycastLayers;
 			// Ignore all AOI layers
@@ -391,12 +391,11 @@ namespace ARETT
 			// Call the Unity update for the data access layer if it exists
 			dataAccessLayer?.UnityUpdate();
 
-			// Check if there are new actions to be executed and if yes execute them
-			if (actionQueue.Count > 0)
+			// Process all actions which are waiting to be processed
+			// Note: This isn't 100% thread save as we could end in a loop when there are new actions coming in faster than we are processing them.
+			//       However, actions are added that rarely that we shouldn't run into issues.
+			if (!actionQueue.IsEmpty)
 			{
-				// Process all actions which are waiting to be processed
-				// Note: This isn't 100% thread save as we could end in a loop when there are new actions coming in faster than we are processing them.
-				//       However, actions are added that rarely that we shouldn't run into issues.
 				while (actionQueue.TryDequeue(out Action action))
 				{
 					// Invoke the action from the queue
@@ -404,12 +403,11 @@ namespace ARETT
 				}
 			}
 
-			// Check if there is new data to process and if yes process it
-			if (dataQueue.Count > 0)
+			// Process all data which is waiting to be processed
+			// Note: This isn't 100% thread save as we could end in a loop when there is still new data coming in faster than we are processing it.
+			//       However, data is added slowly enough that we shouldn't run into issues.
+			if (!dataQueue.IsEmpty)
 			{
-				// Process all data which is waiting to be processed
-				// Note: This isn't 100% thread save as we could end in a loop when there is still new data coming in faster than we are processing it.
-				//       However, data is added slowly enough that we shouldn't run into issues.
 				while (dataQueue.TryDequeue(out GazeAPIData gazeAPIData))
 				{
 					// Initialize the resulting data object with the API data
