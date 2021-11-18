@@ -185,9 +185,53 @@ namespace ARETT
 				case "/api/add_info":
 					return processAddInfo(request);
 
+				case "/api/launch_calibration":
+					return launchCalibration(request);
+
 				default:
 					return "404 - NOT FOUND!";
 			}
+		}
+
+		/// <summary>
+		/// Launch the eye tracking calibration on the HoloLens 2
+		/// </summary>
+		/// <param name="request"></param>
+		/// <returns></returns>
+		private string launchCalibration(HttpListenerRequest request)
+		{
+			// Result
+			Success response;
+
+#if (UNITY_WSA && DOTNETWINRT_PRESENT) || WINDOWS_UWP
+			UnityEngine.WSA.Application.InvokeOnUIThread(async () =>
+			{
+				bool result = await global::Windows.System.Launcher.LaunchUriAsync(new System.Uri("ms-hololenssetup://EyeTracking"));
+				
+				if (!result)
+				{
+					Debug.LogError("[ARETT WebServer] Launching eye tracking calibration failed.");
+				}
+			}, false);
+
+			response = new Success()
+			{
+				success = true,
+				message = "Sent command to start eye tracking calibration on device."
+			};
+#else
+			// We can't launch the calibration when we aren't running on the HoloLens 2
+			Debug.LogError("[ARETT WebServer] Can't launch eye tracking calibration as we are not running on a HoloLens 2!");
+
+			response = new Success()
+			{
+				success = false,
+				message = "Can't start eye tracking calibration as we aren't running on a HoloLens 2!"
+			};
+#endif
+
+			// Return result
+			return JsonUtility.ToJson(response, true);
 		}
 
 		/// <summary>

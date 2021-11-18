@@ -66,6 +66,9 @@ updateStatus = async () => {
         globalThis.checkVisible = newStatus["checkVisible"];
         displayCheckButton(newStatus["checkVisible"]);
 
+        // Enable the calibration button
+        displayCalibrationButton(true);
+
         // Add logged info
         newInfoString = "";
         for (i = (newStatus["infoLogs"].length - 1); i >= 0; i--) {
@@ -379,6 +382,41 @@ toggleCheck = async () => {
         setTimeout(updateStatus, 50);
 
         globalThis.togglingCheck = false;
+    }
+}
+
+
+////
+// Launch the eye tracking calibration on the device
+////
+launchingCalibration = false;
+launchCalibration = async () => {
+    // Make sure the command can only run once
+    if (globalThis.launchingCalibration) return;
+    globalThis.launchingCalibration = true;
+
+    // Disable the button to indicate that we are working
+    displayCalibrationButton(false);
+
+    // If the AOI check is visible, hide it
+    try {
+        response = await fetch('/api/launch_calibration');
+        success = await response.json();
+
+        if (!success["success"]) {
+            alert("Calibration couldn't be launched on the device!\nError: " + success["message"]);
+        }
+    }
+    catch (error) {
+        handleConnectionError(error);
+    }
+    finally {
+        // Update the status display after a few ms
+        // (as the highlight layer is only shown on the next update instead of immediately)
+        displayUpdateButton(updateRunning = true);
+        setTimeout(updateStatus, 50);
+
+        globalThis.launchingCalibration = false;
     }
 }
 
