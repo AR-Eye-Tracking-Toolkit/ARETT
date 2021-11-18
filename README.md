@@ -20,13 +20,21 @@ The toolkit is currently being developed for [Unity](https://unity.com/releases/
 
 ## Reference
 
-This toolkit is submitted for publication. Preliminary reference:
+Article: https://www.mdpi.com/1424-8220/21/6/2234
 
 ```tex
-@unpublished{Kapp.2021,
-  author = {Kapp, Sebastian and Barz, Michael and Mukhametov, Sergey and Sonntag, Daniel and Kuhn, Jochen},
-  year = {2021},
-  title = {ARETT: Augmented Reality Eye Tracking Toolkit for Head Mounted Displays},
-  note = {Manuscript submitted for publication}
+@article{Kapp.2021,
+    title={ARETT: Augmented Reality Eye Tracking Toolkit for Head Mounted Displays},
+    author={Kapp, Sebastian and Barz, Michael and Mukhametov, Sergey and Sonntag, Daniel and Kuhn, Jochen},
+    journal={Sensors},
+    volume={21},
+    number={6},
+    pages={2234},
+    ISSN={1424-8220},
+    url={http://dx.doi.org/10.3390/s21062234},
+    DOI={10.3390/s21062234},
+    publisher={MDPI AG},
+    month={Mar},
+    year={2021}
 }
 ```
