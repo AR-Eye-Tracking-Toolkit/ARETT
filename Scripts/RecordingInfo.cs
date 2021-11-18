@@ -13,6 +13,8 @@ namespace ARETT
 	{
 		public string participantName;
 		public string recordingName;
+		public bool eyesApiAvailable;
+		public bool gazeCalibrationValid;
 		public DateTime startTime;
 		public DateTime stopTime;
 		public TimeSpan recordingDuration;
