@@ -13,6 +13,7 @@ using Microsoft.MixedReality.Toolkit;
 using Microsoft.MixedReality.Toolkit.Utilities;
 using Microsoft.MixedReality.Toolkit.Windows.Utilities;
 using Microsoft.MixedReality.Toolkit.WindowsMixedReality;
+using Microsoft.MixedReality.OpenXR;
 
 // Windows Eye Tracking APIs
 #if WINDOWS_UWP
@@ -268,11 +269,18 @@ namespace ARETT
 		public void UnityUpdate()
 		{
 #if (UNITY_WSA && DOTNETWINRT_PRESENT) || WINDOWS_UWP
-			// Always get the current coordinate system and cache it so we can use it when requesting eye tracking data
-			// Note: Caching is needed as getting the current coordinate system uses Unity functions which need to be executed in the main Unity thread
-			//       while we request the EyeTracking data outside the main thread
-			currentSpatialCoordinateSystem = WindowsMixedRealityUtilities.SpatialCoordinateSystem;
+            // Always get the current coordinate system and cache it so we can use it when requesting eye tracking data
+            // Note: Caching is needed as getting the current coordinate system uses Unity functions which need to be executed in the main Unity thread
+            //       while we request the EyeTracking data outside the main thread
+            //Original way to get the CSCS
+            //currentSpatialCoordinateSystem = WindowsMixedRealityUtilities.SpatialCoordinateSystem;
+
+            //Alternative way to get the CSCS
+            //currentSpatialCoordinateSystem = SpatialLocator.GetDefault().CreateStationaryFrameOfReferenceAtCurrentLocation().CoordinateSystem;
+
+            // See: https://github.com/microsoft/MixedRealityToolkit-Unity/issues/10082
+            currentSpatialCoordinateSystem = PerceptionInterop.GetSceneCoordinateSystem(Pose.identity) as SpatialCoordinateSystem;
 #endif
-		}
+        }
 	}
 }
