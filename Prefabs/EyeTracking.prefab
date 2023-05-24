@@ -302,8 +302,7 @@ MonoBehaviour:
   - EyeTrackingCheck
   GazePointVis: {fileID: 641394362982409528}
   webcamCamera: {fileID: 3835198069295752774}
-  AlwaysPositionLoggedGameObjects:
-  - {fileID: 0}
+  AlwaysPositionLoggedGameObjects: []
   SimulateAvailablility: 1
   simulateEyePosition: 1
   sleepMultiplier: 3.33
