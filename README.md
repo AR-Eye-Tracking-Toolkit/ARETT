@@ -4,7 +4,7 @@ This is a toolkit for Unity 3D which contains scripts for acquiring eye tracking
 
 ## Documentation
 
-Documentation about the usage of the toolkit can be found in the [projects wiki](https://github.com/DFKI-Interactive-Machine-Learning/ARETT/wiki). Background information is provided in the [associated publication](#reference).
+Documentation about the usage of the toolkit can be found in the [projects wiki](https://github.com/AR-Eye-Tracking-Toolkit/ARETT/wiki). Background information is provided in the [associated publication](#reference).
 
 ## Analysis package
 
@@ -17,6 +17,10 @@ A sample application integrating the toolkit into Unity project can be found in 
 ## Dependencies
 
 The toolkit is currently being developed for [Unity](https://unity.com/releases/2021-lts) [2021.3.2f1](https://unity3d.com/unity/whats-new/2021.3.2) and the [Microsoft Mixed Reality Toolkit](https://github.com/microsoft/MixedRealityToolkit-Unity) [v2.8.3](https://github.com/microsoft/MixedRealityToolkit-Unity/releases/tag/v2.8.3). However, it should work with all releases of the Unity 2021.3 LTS branch and future releases of Mixed Reality Toolkit. Compatibility with future versions of Unity is likely but not guranteed.
+
+### Unity 2019
+
+The latest Unity 2019-compatible version is [ARETT v1.1.0](https://github.com/AR-Eye-Tracking-Toolkit/ARETT/releases/tag/v1.1.0).
 
 ## Reference
 
