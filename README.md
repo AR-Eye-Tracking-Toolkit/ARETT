@@ -20,7 +20,7 @@ The toolkit is currently being developed for [Unity](https://unity.com/releases/
 
 ### Unity 2019
 
-The latest Unity 2019-compatible version is [ARETT v1.1.0](https://github.com/AR-Eye-Tracking-Toolkit/ARETT/releases/tag/v1.1.0).
+The latest Unity 2019-compatible version is [ARETT v1.1.0](https://github.com/AR-Eye-Tracking-Toolkit/ARETT/releases/tag/v1.1.0). This is also the original version documented in the publication.
 
 ## Reference
 
